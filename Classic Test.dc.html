@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;height:100%;background:#e8c7a4;color:#2a1f18;font-family:'IBM Plex Sans',sans-serif}a{color:#2a1f18}a:hover{color:#8a4a22}</style>
+<script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+<script src="./block-kit.js"></script>
+<script src="./stud-kit.js"></script>
+<script src="./forest-1stud.js"></script>
+<script src="./forest-corner.js"></script>
+<script src="./classic-kit.js"></script>
+</helmet>
+<div style="position:relative;width:100%;height:100vh;min-height:520px;overflow:hidden;background:#e8c7a4">
+  <div ref="{{ hostRef }}" style="position:absolute;inset:0;cursor:grab;touch-action:none"></div>
+  <div style="position:absolute;top:20px;left:24px;display:flex;flex-direction:column;gap:4px;pointer-events:none;max-width:55%">
+    <div style="font-size:20px;font-weight:600;letter-spacing:-0.01em">Classic props on stud ground</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5e4636">{{ info }}</div>
+  </div>
+  <div style="position:absolute;top:20px;right:24px;display:flex;gap:8px">
+    <button onClick="{{ dl }}" style="font:500 13px 'IBM Plex Sans',sans-serif;padding:9px 14px;border-radius:6px;border:1px solid #2a1f18;background:transparent;color:#2a1f18;cursor:pointer" style-hover="background:#2a1f18;color:#e8c7a4">ClassicTest.rbxmx ↓</button>
+  </div>
+  <div style="position:absolute;left:24px;right:24px;bottom:20px;display:flex;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;flex-wrap:wrap;gap:2px;padding:2px;background:#d9b590;border-radius:6px">
+      <sc-for list="{{ views }}" as="v" hint-placeholder-count="6">
+        <button onClick="{{ v.go }}" style="font:500 13px 'IBM Plex Sans',sans-serif;padding:6px 12px;border:0;border-radius:4px;cursor:pointer;background:transparent;color:#2a1f18" style-hover="background:#f1dcc4">{{ v.name }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:2px;padding:2px;background:#d9b590;border-radius:6px">
+      <button onClick="{{ toggleTex }}" style="font:500 13px 'IBM Plex Sans',sans-serif;padding:6px 12px;border:0;border-radius:4px;cursor:pointer;background:transparent;color:#2a1f18" style-hover="background:#f1dcc4">{{ texLabel }}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  hostRef = React.createRef();
+  state = { n: 0, tex: true };
+
+  componentDidMount() {
+    const wait = () => (window.THREE && window.BlockKit && window.StudKit && window.ForestKit && window.ForestCorner && window.ClassicKit ? this.init() : setTimeout(wait, 50));
+    wait();
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); this.ro && this.ro.disconnect(); this.renderer && this.renderer.dispose(); }
+
+  makeTex(kind) {
+    const THREE = window.THREE, c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#e4e4e4'; g.fillRect(0, 0, 64, 64);
+    if (kind === 'Studs') {
+      g.fillStyle = '#b8b8b8'; g.beginPath(); g.arc(34, 35, 19, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(31, 31, 18, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#cfcfcf'; g.lineWidth = 2; g.beginPath(); g.arc(31, 31, 18, 0, Math.PI * 2); g.stroke();
+    } else if (kind === 'Inlet') {
+      g.fillStyle = '#bdbdbd'; g.fillRect(18, 18, 28, 28);
+      g.fillStyle = '#a6a6a6'; g.fillRect(18, 18, 28, 5); g.fillRect(18, 18, 5, 28);
+      g.fillStyle = '#f4f4f4'; g.fillRect(18, 44, 28, 2); g.fillRect(44, 18, 2, 28);
+    } else {
+      g.strokeStyle = '#b4b4b4'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(8, 8); g.lineTo(56, 56); g.moveTo(56, 8); g.lineTo(8, 56); g.stroke();
+      g.strokeStyle = '#f6f6f6'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(9, 6); g.lineTo(58, 55); g.moveTo(58, 9); g.lineTo(9, 58); g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    return t;
+  }
+
+  async init() {
+    const THREE = window.THREE, host = this.hostRef.current;
+    try { this.mv = await (await fetch('./src/material-variants.json')).json(); } catch (e) { this.mv = []; }
+    const model = (this.model = window.ClassicKit.build());
+    this.zf = window.BlockKit.zfight(model.parts);
+    const renderer = (this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }));
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    host.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    const scene = (this.scene = new THREE.Scene());
+    scene.background = new THREE.Color('#e8c7a4');
+    scene.fog = new THREE.Fog('#e8c7a4', 160, 340);
+    scene.add(new THREE.HemisphereLight('#ffd9b0', '#4a3a2e', 0.62));
+    const sun = new THREE.DirectionalLight('#ffb36b', 1.15);
+    sun.position.set(-70, 42, 34);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 260 });
+    sun.shadow.bias = -0.0004;
+    scene.add(sun);
+    const tex = { Studs: this.makeTex('Studs'), Weld: this.makeTex('Weld'), Inlet: this.makeTex('Inlet') };
+    const mat4 = (c) => new THREE.Matrix4().set(c.R[0], c.R[1], c.R[2], c.p[0], c.R[3], c.R[4], c.R[5], c.p[1], c.R[6], c.R[7], c.R[8], c.p[2], 0, 0, 0, 1);
+    const mats = {};
+    this.texMats = [];
+    const matOf = (p) => {
+      const k = p.color + p.mat + (p.variant || '');
+      if (!mats[k]) {
+        const c = new THREE.Color(p.color).convertSRGBToLinear();
+        mats[k] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, map: p.variant ? tex[p.variant] : null });
+        if (p.variant) this.texMats.push([mats[k], tex[p.variant]]);
+      }
+      return mats[k];
+    };
+    const boxGeo = (s, uv) => {
+      const g = new THREE.BoxGeometry(s[0], s[1], s[2]);
+      if (uv) {
+        const a = g.attributes.uv, dims = [[s[2], s[1]], [s[2], s[1]], [s[0], s[2]], [s[0], s[2]], [s[0], s[1]], [s[0], s[1]]];
+        for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const j = f * 4 + i; a.setXY(j, a.getX(j) * dims[f][0], a.getY(j) * dims[f][1]); }
+      }
+      return g;
+    };
+    for (const p of model.parts) {
+      let geo;
+      if (p.cls === 'MeshPart') { geo = new THREE.SphereGeometry(0.5, 14, 10); geo.scale(...p.size); } // kit mesh stand-in (real mesh can't load here)
+      else if (p.cls === 'TrussPart') geo = this.trussGeo(p.size[1]);
+      else if (p.cls === 'WedgePart') geo = this.wedgeGeo(...p.size);
+      else if (p.shape === 2) { geo = new THREE.CylinderGeometry(p.size[1] / 2, p.size[1] / 2, p.size[0], 20); geo.rotateZ(Math.PI / 2); }
+      else if (p.meshKey) geo = this.meshGeo(p);
+      else geo = boxGeo(p.size, !!p.variant);
+      const mesh = new THREE.Mesh(geo, matOf(p));
+      mesh.castShadow = p.shadow; mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = false; mesh.matrix.copy(mat4(p.cf));
+      scene.add(mesh);
+    }
+    this.cam = new THREE.PerspectiveCamera(35, 1, 0.5, 1000);
+    this.orbit = { az: 0.7, el: 0.32, r: 62, target: new THREE.Vector3(0, 4, 0) };
+    window.__view = this.orbit;
+    this.bindOrbit(renderer.domElement);
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(host);
+    this.resize();
+    this.setState({ n: model.parts.length });
+    const loop = () => {
+      const o = this.orbit, cam = this.cam;
+      cam.position.set(o.target.x + o.r * Math.cos(o.el) * Math.sin(o.az), o.target.y + o.r * Math.sin(o.el), o.target.z + o.r * Math.cos(o.el) * Math.cos(o.az));
+      cam.lookAt(o.target);
+      renderer.render(scene, cam);
+      this.raf = requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  // stand-ins for Roblox meshes (the real ones can't load here)
+  meshGeo(p) {
+    const THREE = window.THREE, [sx, sy, sz] = p.size, k = p.meshKey;
+    const merge = (list) => { const pos = []; for (const g of list) { const n = g.toNonIndexed(); pos.push(...n.attributes.position.array); } const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.computeVertexNormals(); return out; };
+    const leaf = (len, wid, ang, tilt) => { const g = new THREE.SphereGeometry(1, 8, 6); g.scale(wid / 2, 0.12, len / 2); g.translate(0, 0, len / 2); g.rotateX(-tilt); g.rotateY(ang); return g; };
+    if (k === 'Round') {
+      const pts = [], r = 0.5, e = 0.14;
+      pts.push(new THREE.Vector2(0, -0.5));
+      for (let i = 0; i <= 6; i++) { const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector2(r - e + Math.cos(a) * e, -0.5 + e + Math.sin(a) * e)); }
+      for (let i = 0; i <= 6; i++) { const a = (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector2(r - e + Math.cos(a) * e, 0.5 - e + Math.sin(a) * e)); }
+      pts.push(new THREE.Vector2(0, 0.5));
+      const g = new THREE.LatheGeometry(pts, 24); g.scale(sx, sy, sz); return g;
+    }
+    if (k === 'Fern') { const L = []; for (let i = 0; i < 6; i++) L.push(leaf(sx * 0.55, sx * 0.3, (i / 6) * Math.PI * 2 + 0.3, 0.5 + (i % 2) * 0.35)); const g = merge(L); g.translate(0, -sy / 2 + 0.1, 0); return g; }
+    if (k === 'Bush') { const L = []; for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 9; i++) L.push(leaf(sx * (0.5 - ring * 0.12), sx * 0.2, (i / 9) * Math.PI * 2 + ring * 0.35, 0.15 + ring * 0.45)); const g = merge(L); g.translate(0, -sy / 2 + 0.3, 0); return g; }
+    if (k === 'Cloud') { const L = []; for (const [x, y, r] of [[-0.3, 0, 0.32], [0.05, 0.08, 0.4], [0.35, -0.02, 0.3]]) { const g = new THREE.IcosahedronGeometry(r * sx * 0.55, 1); g.translate(x * sx, y * sy, 0); L.push(g); } return merge(L); }
+    return new THREE.BoxGeometry(sx, sy, sz);
+  }
+
+  // TrussPart stand-in: 4 corner rails + a rung ring every 2 studs (Frame style)
+  trussGeo(len) {
+    const THREE = window.THREE, list = [], bar = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); list.push(g.toNonIndexed()); };
+    for (const x of [-0.85, 0.85]) for (const z of [-0.85, 0.85]) bar(0.3, len, 0.3, x, 0, z);
+    for (let y = -len / 2 + 1; y < len / 2; y += 2) { bar(2, 0.25, 0.25, 0, y, -0.85); bar(2, 0.25, 0.25, 0, y, 0.85); bar(0.25, 0.25, 2, -0.85, y, 0); bar(0.25, 0.25, 2, 0.85, y, 0); }
+    const pos = []; for (const g of list) pos.push(...g.attributes.position.array);
+    const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.computeVertexNormals(); return out;
+  }
+
+  wedgeGeo(sx, sy, sz) {
+    const THREE = window.THREE, x = sx / 2, y = sy / 2, z = sz / 2;
+    const v = [[-x, -y, -z], [x, -y, -z], [-x, -y, z], [x, -y, z], [-x, y, z], [x, y, z]];
+    const tris = [[0, 2, 1], [1, 2, 3], [2, 4, 3], [3, 4, 5], [0, 1, 4], [1, 5, 4], [0, 4, 2], [1, 3, 5]];
+    const pos = [], c = [0, -y / 3, z / 3];
+    for (let [a, b, d] of tris) {
+      const A = v[a], B = v[b], D = v[d];
+      const u = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], w = [D[0] - A[0], D[1] - A[1], D[2] - A[2]];
+      const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+      const m = [(A[0] + B[0] + D[0]) / 3 - c[0], (A[1] + B[1] + D[1]) / 3 - c[1], (A[2] + B[2] + D[2]) / 3 - c[2]];
+      if (n[0] * m[0] + n[1] * m[1] + n[2] * m[2] < 0) [b, d] = [d, b];
+      [a, b, d].forEach((i) => pos.push(...v[i]));
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    return g;
+  }
+
+  resize() {
+    const host = this.hostRef.current;
+    if (!host || !this.renderer) return;
+    this.renderer.setSize(host.clientWidth, host.clientHeight);
+    this.cam.aspect = host.clientWidth / host.clientHeight;
+    this.cam.updateProjectionMatrix();
+  }
+
+  bindOrbit(el) {
+    let drag = null;
+    el.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'; });
+    el.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      this.orbit.az -= (e.clientX - drag.x) * 0.006;
+      this.orbit.el = Math.max(0.02, Math.min(1.5, this.orbit.el + (e.clientY - drag.y) * 0.005));
+      drag.x = e.clientX; drag.y = e.clientY;
+    });
+    el.addEventListener('pointerup', () => { drag = null; el.style.cursor = 'grab'; });
+    el.addEventListener('wheel', (e) => { e.preventDefault(); this.orbit.r = Math.max(8, Math.min(300, this.orbit.r * (1 + e.deltaY * 0.001))); }, { passive: false });
+  }
+
+  renderVals() {
+    const go = (x, y, z, r, el, az) => () => { const o = this.orbit; if (!o) return; Object.assign(o, { r, el }); if (az !== undefined) o.az = az; o.target.set(x, y, z); };
+    const m = this.model;
+    return {
+      hostRef: this.hostRef,
+      info: m ? `meshes shown as stand-ins · ${m.parts.length} parts · ${m.parts.filter((p) => p.variant).length} with Studs/Weld · z-fighting faces: ${this.zf.length}` : 'loading…',
+      views: [
+        { name: '¾', go: go(0, 4, 0, 62, 0.32, 0.7) },
+        { name: 'Low', go: go(-2, 2, 4, 34, 0.08, 0.5) },
+        { name: 'Crates', go: go(-8, 2, 9, 16, 0.25, -0.4) },
+        { name: 'Barrels', go: go(8, 1.5, -8, 16, 0.25, 0.9) },
+        { name: 'Path', go: go(-2, 0, 4, 22, 0.45, 0.2) },
+        { name: 'Top', go: go(0, 0, 0, 65, 1.45, 0) },
+      ],
+      texLabel: this.state.tex ? 'Textures: on' : 'Textures: off',
+      toggleTex: () => {
+        const on = !this.state.tex;
+        (this.texMats || []).forEach(([mt, t]) => { mt.map = on ? t : null; mt.needsUpdate = true; });
+        this.setState({ tex: on });
+      },
+      dl: () => {
+        if (!m) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([window.BlockKit.toRbxmx({ ...m, rootXml: this.mv })], { type: 'application/xml' }));
+        a.download = 'ClassicTest.rbxmx';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
